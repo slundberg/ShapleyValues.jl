@@ -2,8 +2,20 @@ module ShapleyValues
 
 export shapley_values
 
-"Designed to determine the Shapley values (importance) of each feature for model(x)."
-function shapley_values(x, f, Xt, featureGroups=nothing; nsamples=10000, maxStdDevFraction=0.02)
+# import the GLM link functions and provide derivatives for them
+using GLM
+dlinkfun(::CauchitLink, μ) = π.*sec(π.*(μ - oftype(μ, 0.5))).^2
+dlinkfun(::CloglogLink, μ) = 1.0./((μ-1).*log(1-μ))
+dlinkfun(::IdentityLink, μ) = 1.0
+dlinkfun(::InverseLink, μ) = -inv(abs2(μ))
+dlinkfun(::LogitLink, μ) = 1.0./(μ-μ.^2)
+dlinkfun(::LogLink, μ) = 1.0./μ
+#dlinkfun(::ProbitLink, μ) = ...not done yet
+dlinkfun(::SqrtLink, μ) = oftype(μ, 0.5)./sqrt(μ)
+
+"Designed to determine the Shapley values (importance) of each feature for f(x)."
+function shapley_values(x, f, Xt, linkFunction::Link=IdentityLink(), featureGroups=nothing; nsamples=10000, maxStdDevFraction=0.02, fnull=nothing)
+    x = reshape(x, length(x),1)
     P = length(x)
 
     # find the feature groups we will test
@@ -16,30 +28,55 @@ function shapley_values(x, f, Xt, featureGroups=nothing; nsamples=10000, maxStdD
     # loop through the estimation process focusing samples on groups with high variance
     nextSamples = round(Int, (ones(M)./M) * min(10M, nsamples))
     accumulators = [MeanVarianceAccumulator() for i in 1:M]
-    totals = zeros(M)
+    totals1 = zeros(M)
+    totals2 = zeros(M)
     counts = zeros(Int64, M)
     sampleChunk = round(Int, nsamples/3)
     totalSamples = 0
     while totalSamples < nsamples
 
         # update our estimates for a block of samples
-        update_estimates!(totals, accumulators, x, Xt, f, varyingFeatureGroups, nextSamples)
+        update_estimates!(totals1, totals2, accumulators, x, f, Xt, linkFunction, varyingFeatureGroups, nextSamples)
 
         # keep track of our samples and optimize their allocation to minimize variance (Neyman allocation)
         totalSamples += sum(nextSamples)
         counts .+= nextSamples
         vs = [var(a) for a in accumulators]
         nextSamples = round(Int, sampleChunk*vs/sum(vs))
-        sum(abs(totals ./ counts))*maxStdDevFraction <= sqrt(sum(vs./counts)) || break
-        #println("SDF")
+        sum(abs((totals1-totals2) ./ counts))*maxStdDevFraction <= sqrt(sum(vs./counts)) || break
+        #println("s")
+    end
+    r = totals1 ./ counts
+    s = totals2 ./ counts
+    #println("r = $r")
+    #println("s = $s")
+
+    dlinkr = dlinkfun(linkFunction, r)
+    dlinks = dlinkfun(linkFunction, s)
+    #println("dlinkr = $dlinkr")
+    #println("dlinks = $dlinks")
+    φ = zeros(length(featureGroups))
+    φ[varyingInds] = linkfun(linkFunction, r) - linkfun(linkFunction, s) + dlinks.*s - dlinkr.*r
+    #println("sum(φ) = ", sum(φ))
+
+    # compute the Shapley values along with estimated variances of the estimates
+    φ[varyingInds] += (dlinkr.*totals1 - dlinks.*totals2) ./ counts
+    φVar = zeros(length(featureGroups))
+    φVar[varyingInds] = [var(a) for a in accumulators]./counts
+    φVar[varyingInds] ./= (dlinkr+dlinks)/2
+
+    # If a base value was provided then we ensure that the total of all features equals f(x)
+    if fnull != nothing
+        trueSum = linkfun(linkFunction, f(x)[1]) - linkfun(linkFunction, fnull)
+        β = inv(φ*φ' + I*(trueSum*1e-8))*φ*(sum(φ) - trueSum)
+        # println("φ = $φ")
+        # println("β = $β")
+        φ .-= β.*φ
     end
 
+
     # return the Shapley values along with estimated variances of the estimates
-    est = zeros(length(featureGroups))
-    est[varyingInds] = totals ./ counts
-    estVar = zeros(length(featureGroups))
-    estVar[varyingInds] = [var(a) for a in accumulators]./counts
-    est,estVar
+    φ,φVar
 end
 
 "Identifies which feature groups often vary from the observed value in data set."
@@ -61,12 +98,11 @@ function varying_feature_groups(x, Xt, featureGroups::Array{Array{Int64,1},1}; n
 end
 
 "The core method that updates the Shapley value estimates."
-function update_estimates!(totals, accumulators, x, Xt, model, featureGroups, sampleCounts)
+function update_estimates!(totals1, totals2, accumulators, x, f, Xt, linkFunction, featureGroups, sampleCounts)
     M = length(featureGroups)
     P = length(x)
     N = size(Xt)[2]
     @assert length(sampleCounts) == M "sampleCounts should be an array of counts for each feature group!"
-
 
     # build the synthentic samples
     inds = collect(1:M)
@@ -99,16 +135,16 @@ function update_estimates!(totals, accumulators, x, Xt, model, featureGroups, sa
         end
     end
 
-    # run the model
-    y = model(synthSamples[:,1:2*(sum(sampleCounts)-sum(unchangedCounts))])
+    # run the provided function
+    y = f(synthSamples[:,1:2*(sum(sampleCounts)-sum(unchangedCounts))])
 
     # sum the differences
     pos = 1
     for i in 1:M
         for j in 1:(sampleCounts[i]-unchangedCounts[i])
-            diff = y[pos] - y[pos+1]
-            totals[i] += diff
-            observe!(accumulators[i], diff, 1)
+            totals1[i] += y[pos]
+            totals2[i] += y[pos+1]
+            observe!(accumulators[i], y[pos] - y[pos+1], 1)
             pos += 2
         end
 
