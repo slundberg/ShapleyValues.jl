@@ -23,7 +23,7 @@ using ShapleyValues
 values,variances = shapley_values(x, f, Xt)
 ```
 
-`x` is a specfic data instance, `f` is a function for which we want the Shapley values over all the features, `Xt` is a data matrix used to compute expectations. Typically `f` is a learned model, `Xt` is the training dataset, and we want an additive explaination of the prediction `f(x) = E[y | x]`. This is given by `E[y | x] - E[y] = \sum_i \phi_i(x)` where `\phi_i(x)` is the Shapley value for the `i`th feature group. Note that `E[y]` is the prediction of a model with no features provided, `E[y | x]` is the prediction when all features are provided, so the Shapley values additively account for the change in the prediction from base line to the current prediction. Note that typically `E[y] != f(0)` and sampling under the assuption that features are independeny is used to estimate the effect of not observing certain subsets of features.
+`x` is a specfic data instance, `f` is a function for which we want the Shapley values over all the features, `Xt` is a data matrix used to compute expectations. Typically `f` is a learned model, `Xt` is the training dataset, and we want an additive explaination of the prediction `f(x) = E[y | x]`. This is given by `E[y | x] - E[y] = \sum_i φ_i(x)` where `φ_i(x)` is the Shapley value for the `i`th feature group. Note that `E[y]` is the prediction of a model with no features provided, `E[y | x]` is the prediction when all features are provided, so the Shapley values additively account for the change in the prediction from base line to the current prediction. Note that typically `E[y] != f(0)` and sampling under the assuption that features are independeny is used to estimate the effect of not observing certain subsets of features.
 
 ### Logistic regression
 
@@ -34,7 +34,7 @@ using GLM
 values,variances = shapley_values(x, f, Xt, LogisticLink())
 ```
 
-While for least square regression we had `E[y | x] - E[y] = \sum_i \phi_i(x)`, for logistic regression we instead assume that the log-odds are additive (rather than the raw probabilities), this gives `logit(E[y | x]) - logit(E[y]) = \sum_i \phi_i(x)`. For other supported link functions see the top of the main source code file.
+While for least square regression we had `E[y | x] - E[y] = \sum_i φ_i(x)`, for logistic regression we instead assume that the log-odds are additive (rather than the raw probabilities), this gives `logit(E[y | x]) - logit(E[y]) = \sum_i φ_i(x)`. For other supported link functions see the top of the main source code file.
 
 ### Feature grouping
 
