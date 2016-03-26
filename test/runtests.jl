@@ -1,6 +1,5 @@
 using ShapleyValues
 using Base.Test
-using GLM
 
 # generate data and ordinary least squares model
 srand(1)
@@ -49,7 +48,7 @@ baseRate = mean(ypredl)
 # srand(round(Int, time()))
 
 # ensure that the total is with 10%
-vl = shapley_values(xl, modell, Xl', LogitLink(), nsamples=10000)[1]
+vl = shapley_values(xl, modell, Xl', logit, nsamples=10000)[1]
 trueDiff = logit(modell(xl)[1]) - logit(baseRate)
 @test abs(sum(vl)-trueDiff)/abs(trueDiff) < 0.1
 
@@ -59,7 +58,7 @@ trueDiff = logit(modell(xl)[1]) - logit(baseRate)
 # println(vl)
 
 # ensure that the adjusted total is perfect
-vl = shapley_values(xl, modell, Xl', LogitLink(), nsamples=10000, fnull=baseRate)[1]
+vl = shapley_values(xl, modell, Xl', logit, nsamples=10000, fnull=baseRate)[1]
 @test abs(sum(vl)-trueDiff)/abs(trueDiff) < 0.0001
 # println("True diff = ", logit(modell(xl)[1]) - logit(baseRate))
 # println("sum(vl) = ", sum(vl))

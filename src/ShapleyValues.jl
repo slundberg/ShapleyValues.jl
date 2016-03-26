@@ -2,19 +2,9 @@ module ShapleyValues
 
 export shapley_values
 
-# import the GLM link functions and provide derivatives for them
-using GLM
-dlinkfun(::CauchitLink, μ) = π.*sec(π.*(μ - oftype(μ, 0.5))).^2
-dlinkfun(::CloglogLink, μ) = 1.0./((μ-1).*log(1-μ))
-dlinkfun(::IdentityLink, μ) = 1.0
-dlinkfun(::InverseLink, μ) = -inv(abs2(μ))
-dlinkfun(::LogitLink, μ) = 1.0./(μ-μ.^2)
-dlinkfun(::LogLink, μ) = 1.0./μ
-#dlinkfun(::ProbitLink, μ) = ...not done yet
-dlinkfun(::SqrtLink, μ) = oftype(μ, 0.5)./sqrt(μ)
 
 "Designed to determine the Shapley values (importance) of each feature for f(x)."
-function shapley_values(x, f, Xt, linkFunction::Link=IdentityLink(), featureGroups=nothing; nsamples=10000, maxStdDevFraction=0.02, fnull=nothing)
+function shapley_values(x, f::Function, Xt, g::Function=identity, featureGroups=nothing; nsamples=10000, maxStdDevFraction=0.02, fnull=nothing)
     x = reshape(x, length(x),1)
     P = length(x)
 
@@ -36,7 +26,7 @@ function shapley_values(x, f, Xt, linkFunction::Link=IdentityLink(), featureGrou
     while totalSamples < nsamples
 
         # update our estimates for a block of samples
-        update_estimates!(totals1, totals2, accumulators, x, f, Xt, linkFunction, varyingFeatureGroups, nextSamples)
+        update_estimates!(totals1, totals2, accumulators, x, f, Xt, varyingFeatureGroups, nextSamples)
 
         # keep track of our samples and optimize their allocation to minimize variance (Neyman allocation)
         totalSamples += sum(nextSamples)
@@ -44,30 +34,21 @@ function shapley_values(x, f, Xt, linkFunction::Link=IdentityLink(), featureGrou
         vs = [var(a) for a in accumulators]
         nextSamples = round(Int, sampleChunk*vs/sum(vs))
         sum(abs((totals1-totals2) ./ counts))*maxStdDevFraction <= sqrt(sum(vs./counts)) || break
-        #println("s")
     end
     r = totals1 ./ counts
     s = totals2 ./ counts
-    #println("r = $r")
-    #println("s = $s")
-
-    dlinkr = dlinkfun(linkFunction, r)
-    dlinks = dlinkfun(linkFunction, s)
-    #println("dlinkr = $dlinkr")
-    #println("dlinks = $dlinks")
-    φ = zeros(length(featureGroups))
-    φ[varyingInds] = linkfun(linkFunction, r) - linkfun(linkFunction, s) + dlinks.*s - dlinkr.*r
-    #println("sum(φ) = ", sum(φ))
 
     # compute the Shapley values along with estimated variances of the estimates
-    φ[varyingInds] += (dlinkr.*totals1 - dlinks.*totals2) ./ counts
+    φ = zeros(length(featureGroups))
+    φ[varyingInds] = g(r) - g(s)
     φVar = zeros(length(featureGroups))
     φVar[varyingInds] = [var(a) for a in accumulators]./counts
-    φVar[varyingInds] ./= (dlinkr+dlinks)/2
+    p = (r+s)./2
+    φVar[varyingInds] ./= (g(p+1e-6) - g(p))./1e-6
 
     # If a base value was provided then we ensure that the total of all features equals f(x)
     if fnull != nothing
-        trueSum = linkfun(linkFunction, f(x)[1]) - linkfun(linkFunction, fnull)
+        trueSum = g(f(x)[1]) - g(fnull)
         β = inv(φ*φ' + I*(trueSum*1e-8))*φ*(sum(φ) - trueSum)
         # println("φ = $φ")
         # println("β = $β")
@@ -98,7 +79,7 @@ function varying_feature_groups(x, Xt, featureGroups::Array{Array{Int64,1},1}; n
 end
 
 "The core method that updates the Shapley value estimates."
-function update_estimates!(totals1, totals2, accumulators, x, f, Xt, linkFunction, featureGroups, sampleCounts)
+function update_estimates!(totals1, totals2, accumulators, x, f, Xt, featureGroups, sampleCounts)
     M = length(featureGroups)
     P = length(x)
     N = size(Xt)[2]
