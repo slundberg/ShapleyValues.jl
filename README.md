@@ -34,7 +34,7 @@ using GLM
 values,variances = shapley_values(x, f, Xt, logit)
 ```
 
-While for least square regression we had `E[y | x] - E[y] = \sum_i φ_i(x)`, for logistic regression we instead assume that the log-odds are additive (rather than the raw probabilities), this gives `logit(E[y | x]) - logit(E[y]) = \sum_i φ_i(x)`. Arbitrary link functions can be passed.
+While for least square regression we had `E[y | x] - E[y] = \sum_i φ_i(x)`, for logistic regression we instead assume that the log-odds are additive (rather than the raw probabilities), this gives `logit(E[y | x]) - logit(E[y]) = \sum_i φ_i(x)`. Arbitrary differentiable link functions can be passed, and a first order Taylor series approximation is used with carefully chosen linearization points. For models that are truely additive in the given feature groups, this approximation is exact (though the sampling process still introduces errors).
 
 ### Feature grouping
 
