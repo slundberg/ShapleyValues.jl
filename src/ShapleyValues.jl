@@ -71,7 +71,7 @@ function allocate_samples(proportions, nsamples)
         if total < nsamples
             counts[ind] += 1
             total += 1
-        else
+        elseif counts[ind] > 0
             counts[ind] -= 1
             total -= 1
         end
@@ -108,7 +108,7 @@ function update_estimates!(totals1, totals2, accumulators, x, f, Xt, featureGrou
     inds = collect(1:M)
     r = zeros(P)
     unchangedCounts = zeros(Int64, M)
-    synthSamples = zeros(Float32, P,round(Int, sum(sampleCounts)*2))
+    synthSamples = zeros(Float32, P, sum(sampleCounts)*2)
     pos = 1
     for j in 1:maximum(sampleCounts)
         shuffle!(inds)

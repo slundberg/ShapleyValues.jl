@@ -55,3 +55,25 @@ trueDiff = logit(modell(xl)[1]) - logit(baseRate)
 # ensure that the adjusted total is perfect
 vl = shapley_values(xl, modell, Xl', logit, nsamples=10000, fnull=baseRate)[1]
 @test abs(sum(vl)-trueDiff)/abs(trueDiff) < 0.0001
+
+# this captured a bug with sample allocation at one point
+srand(1)
+N = 100000
+P = 10
+X = randn(N,P)
+X .-= mean(X,1)
+offsets = 0*randn(1,P)
+X .+= offsets
+betas = randn(P,1)
+betas[5:end] = 0
+model = x -> x*betas
+x = rand(1,P)
+y = model(X)
+trueVals = vec(betas.*x' - betas.*offsets');
+
+shapley_values(x, x->model(x'), X', nsamples=1000, fnull=mean(y))
+shapley_values(x, x->model(x'), X', nsamples=1000, fnull=mean(y))
+shapley_values(x, x->model(x'), X', nsamples=1000, fnull=mean(y))
+shapley_values(x, x->model(x'), X', nsamples=1000, fnull=mean(y))
+shapley_values(x, x->model(x'), X', nsamples=1000, fnull=mean(y))
+shapley_values(x, x->model(x'), X', nsamples=1000, fnull=mean(y))
