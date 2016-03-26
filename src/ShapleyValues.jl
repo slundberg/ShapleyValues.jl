@@ -4,11 +4,12 @@ export shapley_values
 
 
 "Designed to determine the Shapley values (importance) of each feature for f(x)."
-function shapley_values(x, f::Function, Xt, g::Function=identity, featureGroups=nothing; nsamples=10000, maxStdDevFraction=0.02, fnull=nothing)
+function shapley_values(x, f::Function, Xt, g::Function=identity, featureGroups=nothing; nsamples=10000, fnull=nothing) # maxStdDevFraction=0.02
     x = reshape(x, length(x),1)
     P = length(x)
 
-    # find the feature groups we will test
+    # find the feature groups we will test. If a feature rarely changes from its
+    # current value then we know it doesn't have a large impact on the model
     featureGroups != nothing || (featureGroups = Array{Int64,1}[Int64[i] for i in 1:length(x)])
     featureGroups = convert(Array{Array{Int64,1},1}, featureGroups)
     varyingInds = varying_feature_groups(x, Xt, featureGroups)
@@ -16,14 +17,13 @@ function shapley_values(x, f::Function, Xt, g::Function=identity, featureGroups=
     M = length(varyingFeatureGroups)
 
     # loop through the estimation process focusing samples on groups with high variance
-    nextSamples = round(Int, (ones(M)./M) * min(10M, nsamples))
+    nextSamples = allocate_samples(ones(M), min(20M, nsamples))
     accumulators = [MeanVarianceAccumulator() for i in 1:M]
     totals1 = zeros(M)
     totals2 = zeros(M)
     counts = zeros(Int64, M)
-    sampleChunk = round(Int, nsamples/3)
     totalSamples = 0
-    while totalSamples < nsamples
+    while true
 
         # update our estimates for a block of samples
         update_estimates!(totals1, totals2, accumulators, x, f, Xt, varyingFeatureGroups, nextSamples)
@@ -31,9 +31,11 @@ function shapley_values(x, f::Function, Xt, g::Function=identity, featureGroups=
         # keep track of our samples and optimize their allocation to minimize variance (Neyman allocation)
         totalSamples += sum(nextSamples)
         counts .+= nextSamples
-        vs = [var(a) for a in accumulators]
-        nextSamples = round(Int, sampleChunk*vs/sum(vs))
-        sum(abs((totals1-totals2) ./ counts))*maxStdDevFraction <= sqrt(sum(vs./counts)) || break
+        if totalSamples < nsamples
+            vs = [var(a) for a in accumulators]
+            nextSamples = allocate_samples(vs, min(round(Int, nsamples/3), nsamples-totalSamples))
+            #sum(abs((totals1-totals2) ./ counts))*maxStdDevFraction <= sqrt(sum(vs./counts)) || break
+        else break end
     end
     r = totals1 ./ counts
     s = totals2 ./ counts
@@ -55,9 +57,26 @@ function shapley_values(x, f::Function, Xt, g::Function=identity, featureGroups=
         φ .-= β.*φ
     end
 
-
     # return the Shapley values along with estimated variances of the estimates
     φ,φVar
+end
+
+"Distributes the given number of samples proportionally."
+function allocate_samples(proportions, nsamples)
+    counts = round(Int, nsamples*proportions/sum(proportions))
+    total = sum(counts)
+    for ind in randperm(length(counts))
+        total != nsamples || break
+
+        if total < nsamples
+            counts[ind] += 1
+            total += 1
+        else
+            counts[ind] -= 1
+            total -= 1
+        end
+    end
+    counts
 end
 
 "Identifies which feature groups often vary from the observed value in data set."
@@ -91,25 +110,41 @@ function update_estimates!(totals1, totals2, accumulators, x, f, Xt, featureGrou
     unchangedCounts = zeros(Int64, M)
     synthSamples = zeros(Float32, P,round(Int, sum(sampleCounts)*2))
     pos = 1
-    for i in 1:M
-        for j in 1:sampleCounts[i]
-            shuffle!(inds)
-            r[:] = full(Xt[:,rand(1:N)])
+    for j in 1:maximum(sampleCounts)
+        shuffle!(inds)
+        r[:] = full(Xt[:,rand(1:N)])
+
+        for i in 1:M
+            j <= sampleCounts[i] || continue
+
+            # find where in the permutation we are
             ind = findfirst(inds, i)
 
+            # see if this group is unchanged for this sample
             ginds = featureGroups[inds[ind]]
-            if all(x[ginds] .== r[ginds])
+            unchanged = true
+            for k in ginds
+                if x[k] != r[k]
+                    unchanged = false
+                    break
+                end
+            end
+
+            # if the current group does not change we can skip running the model
+            if unchanged
                 unchangedCounts[i] += 1
                 continue
             end
 
+            # save two synthetic samples with and without the current group replaced
             synthSamples[:,pos] = x
             synthSamples[:,pos+1] = x
             synthSamples[featureGroups[inds[ind]],pos+1] = r[featureGroups[inds[ind]]]
             for k in ind+1:M
-                ginds = featureGroups[inds[k]]
-                synthSamples[ginds,pos] = r[ginds]
-                synthSamples[ginds,pos+1] = r[ginds]
+                for l in featureGroups[inds[k]]
+                    synthSamples[l,pos] = r[l]
+                    synthSamples[l,pos+1] = r[l]
+                end
             end
 
             pos += 2
@@ -119,19 +154,20 @@ function update_estimates!(totals1, totals2, accumulators, x, f, Xt, featureGrou
     # run the provided function
     y = f(synthSamples[:,1:2*(sum(sampleCounts)-sum(unchangedCounts))])
 
-    # sum the differences
+    # sum the totals and keep an estimate of the variance differences
     pos = 1
-    for i in 1:M
-        for j in 1:(sampleCounts[i]-unchangedCounts[i])
-            totals1[i] += y[pos]
-            totals2[i] += y[pos+1]
-            observe!(accumulators[i], y[pos] - y[pos+1], 1)
-            pos += 2
-        end
+    for j in 1:maximum(sampleCounts)
+        for i in 1:M
+            j <= sampleCounts[i] || continue
 
-        # unchanged samples have a difference of zero
-        for j in 1:unchangedCounts[i]
-            observe!(accumulators[i], 0.0, 1)
+            if j <= sampleCounts[i]-unchangedCounts[i]
+                totals1[i] += y[pos]
+                totals2[i] += y[pos+1]
+                observe!(accumulators[i], y[pos] - y[pos+1], 1)
+                pos += 2
+            else
+                observe!(accumulators[i], 0.0, 1) # unchanged samples have a difference of zero
+            end
         end
     end
 end
