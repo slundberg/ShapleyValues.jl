@@ -28,9 +28,6 @@ values,variances = shapley_values(x, f, Xt)
 ### Logistic regression
 
 ```julia
-using ShapleyValues
-using GLM
-
 values,variances = shapley_values(x, f, Xt, logit)
 ```
 
@@ -39,13 +36,18 @@ While for least square regression we had `E[y | x] - E[y] = \sum_i φ_i(x)`, for
 ### Feature grouping
 
 ```julia
-using ShapleyValues
-using GLM
-
 values,variances = shapley_values(x, f, Xt, logit, Array[[1,2],[3],[4,5]])
 ```
 
 The importance of groups of features can be computed by passing an array group indexes.
+
+### Known base line prediction
+
+```julia
+values,variances = shapley_values(x, f, Xt, logit, fnull=baseRate)
+```
+
+Often the base-line prediction `g(E[y])` is known. If provided it is used to enforce that `g(E[y | x]) - g(E[y]) = \sum_i φ_i(x)` is exactly true.
 
 ## Optimizations
 
