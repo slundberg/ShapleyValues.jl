@@ -34,7 +34,7 @@ using GLM
 values,variances = shapley_values(x, f, Xt, LogisticLink())
 ```
 
-While for least square regression we had `E[y | x] - E[y] = \sum_i \phi_i(x)`, for logistic regression we instead assume that the log-odds are additive (rather than the raw probabilities), this gives `logit(E[y | x]) - logit(E[y]) = \sum_i \phi_i(x)`.
+While for least square regression we had `E[y | x] - E[y] = \sum_i \phi_i(x)`, for logistic regression we instead assume that the log-odds are additive (rather than the raw probabilities), this gives `logit(E[y | x]) - logit(E[y]) = \sum_i \phi_i(x)`. For other supported link functions see the top of the main source code file.
 
 ### Feature grouping
 
