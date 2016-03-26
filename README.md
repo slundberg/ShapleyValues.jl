@@ -4,7 +4,7 @@
 
 This package is designed to explain individual predictions made by regression or classification methods. It does this by computing the [Shapley value](https://en.wikipedia.org/wiki/Shapley_value) for each feature or group of features. The Shapley value comes from game theory and is an additive representation of the contribution of each feature to an arbitrarily complex function.
 
-This package is inspired by the paper [A General Method for Visualizing and Explaining Black-Box Regression Models](http://link.springer.com/chapter/10.1007%2F978-3-642-20267-4_3) by Strumbelj and Kononenko. However, it extends the ideas presented to allow for non-linear link functions from generalized linear models, and includes several performance enhancements.
+This package is inspired by the paper [A General Method for Visualizing and Explaining Black-Box Regression Models](http://link.springer.com/chapter/10.1007%2F978-3-642-20267-4_3) by Strumbelj and Kononenko. However, it extends the ideas presented to allow for any non-linear link function (such as those used in generalized linear models), and includes several performance enhancements.
 
 ## Installation
 
@@ -31,10 +31,10 @@ values,variances = shapley_values(x, f, Xt)
 using ShapleyValues
 using GLM
 
-values,variances = shapley_values(x, f, Xt, LogisticLink())
+values,variances = shapley_values(x, f, Xt, logit)
 ```
 
-While for least square regression we had `E[y | x] - E[y] = \sum_i φ_i(x)`, for logistic regression we instead assume that the log-odds are additive (rather than the raw probabilities), this gives `logit(E[y | x]) - logit(E[y]) = \sum_i φ_i(x)`. For other supported link functions see the top of the main source code file.
+While for least square regression we had `E[y | x] - E[y] = \sum_i φ_i(x)`, for logistic regression we instead assume that the log-odds are additive (rather than the raw probabilities), this gives `logit(E[y | x]) - logit(E[y]) = \sum_i φ_i(x)`. Arbitrary link functions can be passed.
 
 ### Feature grouping
 
@@ -42,7 +42,7 @@ While for least square regression we had `E[y | x] - E[y] = \sum_i φ_i(x)`, for
 using ShapleyValues
 using GLM
 
-values,variances = shapley_values(x, f, Xt, LogisticLink(), Array[[1,2],[3],[4,5]])
+values,variances = shapley_values(x, f, Xt, logit, Array[[1,2],[3],[4,5]])
 ```
 
 The importance of groups of features can be computed by passing an array group indexes.
