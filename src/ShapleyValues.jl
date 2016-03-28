@@ -43,6 +43,7 @@ function shapley_values(x, f::Function, Xt, g::Function=identity, featureGroups=
     # compute the Shapley values along with estimated variances of the estimates
     φ = zeros(length(featureGroups))
     φ[varyingInds] = g(r) - g(s)
+    φ[varyingInds[r .== s]] = 0.0 # positions where both r and s are identical we know are zero (even if g is undefined for their value)
     φVar = zeros(length(featureGroups))
     φVar[varyingInds] = [var(a) for a in accumulators]./counts
     p = (r+s)./2
