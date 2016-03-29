@@ -161,20 +161,15 @@ function update_estimates!(totals1, totals2, accumulators, x, f, Xt, featureGrou
     y = f(synthSamples[:,1:2*(sum(sampleCounts)-sum(unchangedCounts))])
 
     # sum the totals and keep an estimate of the variance differences
-    pos = 1
-    for j in 1:maximum(sampleCounts)
-        for i in 1:M
-            j <= sampleCounts[i] || continue
-
-            if j <= sampleCounts[i]-unchangedCounts[i]
-                ind = synthInds[pos]
-                totals1[ind] += y[pos]
-                totals2[ind] += y[pos+1]
-                observe!(accumulators[i], y[pos] - y[pos+1], 1)
-                pos += 2
-            else
-                observe!(accumulators[i], 0.0, 1) # unchanged samples have a difference of zero
-            end
+    for pos in 1:2:length(y)
+        ind = synthInds[pos]
+        totals1[ind] += y[pos]
+        totals2[ind] += y[pos+1]
+        observe!(accumulators[ind], y[pos] - y[pos+1], 1)
+    end
+    for i in 1:M
+        for j in 1:unchangedCounts[i]
+            observe!(accumulators[i], 0.0, 1) # unchanged samples have a difference of zero
         end
     end
 end
