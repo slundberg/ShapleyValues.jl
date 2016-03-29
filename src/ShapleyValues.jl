@@ -53,8 +53,6 @@ function shapley_values(x, f::Function, Xt, g::Function=identity, featureGroups=
     if fnull != nothing
         trueSum = g(f(x)[1]) - g(fnull)
         β = inv(φ*φ' + I*(trueSum*1e-8))*φ*(sum(φ) - trueSum)
-        # println("φ = $φ")
-        # println("β = $β")
         φ .-= β.*φ
     end
 
