@@ -109,7 +109,9 @@ function update_estimates!(totals1, totals2, accumulators, x, f, Xt, featureGrou
     inds = collect(1:M)
     r = zeros(P)
     unchangedCounts = zeros(Int64, M)
-    synthSamples = zeros(Float32, P, sum(sampleCounts)*2)
+    synthLength = sum(sampleCounts)*2
+    synthSamples = zeros(Float32, P, synthLength)
+    synthInds = Array(Int64, synthLength)
     pos = 1
     for j in 1:maximum(sampleCounts)
         shuffle!(inds)
@@ -148,6 +150,9 @@ function update_estimates!(totals1, totals2, accumulators, x, f, Xt, featureGrou
                 end
             end
 
+            # record which feature was varied for this sample
+            synthInds[pos] = i
+
             pos += 2
         end
     end
@@ -162,8 +167,9 @@ function update_estimates!(totals1, totals2, accumulators, x, f, Xt, featureGrou
             j <= sampleCounts[i] || continue
 
             if j <= sampleCounts[i]-unchangedCounts[i]
-                totals1[i] += y[pos]
-                totals2[i] += y[pos+1]
+                ind = synthInds[pos]
+                totals1[ind] += y[pos]
+                totals2[ind] += y[pos+1]
                 observe!(accumulators[i], y[pos] - y[pos+1], 1)
                 pos += 2
             else
