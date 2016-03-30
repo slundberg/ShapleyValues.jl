@@ -40,8 +40,8 @@ function shapley_values(x, f::Function, Xt, g::Function=identity; featureGroups=
             #sum(abs((totals1-totals2) ./ counts))*maxStdDevFraction <= sqrt(sum(vs./counts)) || break
         else break end
     end
-    r = Float64[mean(withi[i]) for i in 1:M]
-    s = Float64[mean(withouti[i]) for i in 1:M]
+    r = Float64[(mean(withi[i])*withi[i].sumw)/deltas[i].sumw for i in 1:M]
+    s = Float64[(mean(withouti[i])*withouti[i].sumw)/deltas[i].sumw for i in 1:M]
 
     # compute the Shapley values along with estimated variances of the estimates
     φ = zeros(length(featureGroups))
