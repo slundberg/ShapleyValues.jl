@@ -4,9 +4,12 @@ export shapley_values
 
 
 "Designed to determine the Shapley values (importance) of each feature for f(x)."
-function shapley_values(x, f::Function, Xt, g::Function=identity, featureGroups=nothing; nsamples=10000, fnull=nothing) # maxStdDevFraction=0.02
+function shapley_values(x, f::Function, Xt, g::Function=identity; featureGroups=nothing, sampleWeights=nothing, nsamples=10000, fnull=nothing) # maxStdDevFraction=0.02
     x = reshape(x, length(x),1)
     P = length(x)
+    N = size(Xt)[2]
+
+    sampleWeights != nothing || (sampleWeights = ones(N))
 
     # find the feature groups we will test. If a feature rarely changes from its
     # current value then we know it doesn't have a large impact on the model
@@ -18,34 +21,34 @@ function shapley_values(x, f::Function, Xt, g::Function=identity, featureGroups=
 
     # loop through the estimation process focusing samples on groups with high variance
     nextSamples = allocate_samples(ones(M), min(20M, nsamples))
-    accumulators = [MeanVarianceAccumulator() for i in 1:M]
-    totals1 = zeros(M)
-    totals2 = zeros(M)
+    withi = [MeanVarianceAccumulator() for i in 1:M]
+    withouti = [MeanVarianceAccumulator() for i in 1:M]
+    deltas = [MeanVarianceAccumulator() for i in 1:M]
     counts = zeros(Int64, M)
     totalSamples = 0
     while true
 
         # update our estimates for a block of samples
-        update_estimates!(totals1, totals2, accumulators, x, f, Xt, varyingFeatureGroups, nextSamples)
+        update_estimates!(withi, withouti, deltas, x, f, Xt, varyingFeatureGroups, nextSamples, sampleWeights)
 
         # keep track of our samples and optimize their allocation to minimize variance (Neyman allocation)
         totalSamples += sum(nextSamples)
         counts .+= nextSamples
         if totalSamples < nsamples
-            vs = [var(a) for a in accumulators]
+            vs = [var(a) for a in deltas]
             nextSamples = allocate_samples(vs, min(round(Int, nsamples/3), nsamples-totalSamples))
             #sum(abs((totals1-totals2) ./ counts))*maxStdDevFraction <= sqrt(sum(vs./counts)) || break
         else break end
     end
-    r = totals1 ./ counts
-    s = totals2 ./ counts
+    r = Float64[mean(withi[i]) for i in 1:M]
+    s = Float64[mean(withouti[i]) for i in 1:M]
 
     # compute the Shapley values along with estimated variances of the estimates
     φ = zeros(length(featureGroups))
     φ[varyingInds] = g(r) - g(s)
     φ[varyingInds[r .== s]] = 0.0 # we know positions where r == s are are zero (even if g is undefined for that value)
     φVar = zeros(length(featureGroups))
-    φVar[varyingInds] = [var(a) for a in accumulators]./counts
+    φVar[varyingInds] = [var(a) for a in deltas]./counts
     p = (r+s)./2
     φVar[varyingInds] ./= (g(p+1e-6) - g(p))./1e-6
 
@@ -97,7 +100,7 @@ function varying_feature_groups(x, Xt, featureGroups::Array{Array{Int64,1},1}; n
 end
 
 "The core method that updates the Shapley value estimates."
-function update_estimates!(totals1, totals2, accumulators, x, f, Xt, featureGroups, sampleCounts)
+function update_estimates!(withi, withouti, deltas, x, f, Xt, featureGroups, sampleCounts, sampleWeights)
     M = length(featureGroups)
     P = length(x)
     N = size(Xt)[2]
@@ -107,13 +110,16 @@ function update_estimates!(totals1, totals2, accumulators, x, f, Xt, featureGrou
     inds = collect(1:M)
     r = zeros(P)
     unchangedCounts = zeros(Int64, M)
+    unchangedInds = Array(Int64, M)
     synthLength = sum(sampleCounts)*2
     synthSamples = zeros(Float32, P, synthLength)
     synthInds = Array(Int64, synthLength)
+    synthWeights = Array(Float64, synthLength)
     pos = 1
     for j in 1:maximum(sampleCounts)
         shuffle!(inds)
-        r[:] = full(Xt[:,rand(1:N)])
+        rind = rand(1:N)
+        r[:] = full(Xt[:,rind])
 
         for i in 1:M
             j <= sampleCounts[i] || continue
@@ -134,6 +140,7 @@ function update_estimates!(totals1, totals2, accumulators, x, f, Xt, featureGrou
             # if the current group does not change we can skip running the model
             if unchanged
                 unchangedCounts[i] += 1
+                observe!(deltas[i], 0.0, sampleWeights[rind]) # unchanged samples have a difference of zero
                 continue
             end
 
@@ -148,8 +155,9 @@ function update_estimates!(totals1, totals2, accumulators, x, f, Xt, featureGrou
                 end
             end
 
-            # record which feature was varied for this sample
+            # record which feature was varied for this sample, and the weight of the random sample
             synthInds[pos] = i
+            synthWeights[pos] = sampleWeights[rind]
 
             pos += 2
         end
@@ -161,14 +169,9 @@ function update_estimates!(totals1, totals2, accumulators, x, f, Xt, featureGrou
     # sum the totals and keep an estimate of the variance differences
     for pos in 1:2:length(y)
         ind = synthInds[pos]
-        totals1[ind] += y[pos]
-        totals2[ind] += y[pos+1]
-        observe!(accumulators[ind], y[pos] - y[pos+1], 1)
-    end
-    for i in 1:M
-        for j in 1:unchangedCounts[i]
-            observe!(accumulators[i], 0.0, 1) # unchanged samples have a difference of zero
-        end
+        observe!(withi[ind], y[pos], synthWeights[pos])
+        observe!(withouti[ind], y[pos+1], synthWeights[pos])
+        observe!(deltas[ind], y[pos] - y[pos+1], synthWeights[pos])
     end
 end
 
