@@ -35,7 +35,7 @@ function shapley_values(x, f::Function, Xt, g::Function=identity; featureGroups=
         totalSamples += sum(nextSamples)
         counts .+= nextSamples
         if totalSamples < nsamples
-            vs = [var(a) for a in deltas]
+            vs = [var(a) for a in deltas]./counts
             nextSamples = allocate_samples(vs, min(round(Int, nsamples/3), nsamples-totalSamples))
             #sum(abs((totals1-totals2) ./ counts))*maxStdDevFraction <= sqrt(sum(vs./counts)) || break
         else break end
