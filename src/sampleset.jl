@@ -60,7 +60,7 @@ function shapleyvalues(x, f::Function, sampleSets::Array{SampleSet,1}, g::Functi
     M = length(varyingSampleSets)
 
     # loop through the estimation process focusing samples on groups with high variance
-    nextSamples = allocate_samples(ones(M), min(10M, nsamples))
+    nextSamples = allocate_samples(ones(M), min(20M, nsamples))
     deltas = [MeanVarianceAccumulator() for i in 1:M]
     totalSamples = 0
     while true
