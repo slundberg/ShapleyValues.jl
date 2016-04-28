@@ -31,7 +31,7 @@ values,variances = shapleyvalues(x, f, X)
 
 `x` is a specific data sample, `f` is a function for which we want the Shapley values over all the features, and `X` is a data matrix used to compute expectations. Typically `f` is a learned model, `X` is a representative subsample of the training dataset, and we want an additive representation of the prediction `f(x) = E[y | x]`. This is given by `E[y | x] - E[y] = \sum_i φ_i(x)` where `φ_i(x)` is the Shapley value for the `i`th feature group. Note that `E[y]` is the prediction of a model with no features provided, `E[y | x]` is the prediction when all features are provided, so the Shapley values additively account for the change in the prediction from base-line to the current prediction. Note that typically `E[y] != f(0)` and sampling under the assumption that features are independent is used to estimate the effect of not observing certain subsets of features.
 
-The returned `values` are the Shapley values, while `variances` represents the estimated uncertainty in those estimates.
+The returned `values` are the Shapley values, while `variances` represents the estimated uncertainty in those estimates. Note that when `nsamples` (discussed below) is greater than `2^K`, the exact Shapley values are returned.
 
 ### Logistic regression
 
