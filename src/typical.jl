@@ -9,6 +9,7 @@ function update_estimates!{T <: Real}(deltas, x::Array{T,1}, f::Function, typica
     pos = 1
     for i in 1:M
         for j in 1:sampleCounts[i]
+            shuffle!(inds)
 
             # find where in the permutation we are
             ind = findfirst(inds, i)
@@ -69,7 +70,7 @@ function shapleyvalues{T <: Real}(x::Array{T,1}, f::Function, typicalx::Array{T,
         totalSamples += sum(nextSamples)
         if totalSamples < nsamples
             vs = [var(d) for d in deltas]
-            minimum(vs) < varTol && break # stop early if we reach our convergence tolerance
+            maximum(vs) < varTol && break # stop early if we reach our convergence tolerance
             nextSamples = allocate_samples(vs, min(round(Int, nsamples/3), nsamples-totalSamples))
         else break end
     end
