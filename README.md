@@ -33,7 +33,7 @@ values,variances = shapleyvalues(x, f, X)
 
 The returned `values` are the Shapley values, while `variances` represents the estimated uncertainty in those estimates. Note that when `nsamples` (discussed below) is greater than `2^K`, the exact Shapley values are returned.
 
-### Logistic regression
+### Logistic regression (or any other generalized linear model)
 
 ```julia
 p(x) = x->logistic(f(x))
