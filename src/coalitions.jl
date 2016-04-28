@@ -1,4 +1,5 @@
 using Iterators
+using Combinatorics
 
 export coalitions
 
