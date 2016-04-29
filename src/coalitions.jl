@@ -12,7 +12,9 @@ type Coalitions{T}
 end
 
 Base.eltype(it::Coalitions) = Array{eltype(it.members),1}
-Base.length(it::Coalitions) = 2^length(it.members)
+function Base.length(it::Coalitions)
+    length(it.members) < 40 ? 2^length(it.members) : Inf
+end
 
 "Enumerate all the coalitions with a weight for computing the Shapley value."
 coalitions{T}(members::Array{T,1}) = Coalitions(members, 0, 0, subsets(members, 0), T[])

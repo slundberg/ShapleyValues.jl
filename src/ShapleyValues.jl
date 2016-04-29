@@ -138,7 +138,7 @@ function shapleyvalues(x, f::Function, X, g::Function=identity; featureGroups=no
     trueSum = g(fx) - g(fnull)
     tmp = inv(φ*φ' + I*(trueSum*1e-8))
     β = inv(φ*φ' + I*(trueSum*1e-8))*φ*(sum(φ) - trueSum)
-    #println(maximum(β))
+    #println("max β = ", maximum(β))
     φ .-= β.*φ
     @assert all(β .<= 1) "Rescaling failed! (indicates poor Shapley value estimates)"
 

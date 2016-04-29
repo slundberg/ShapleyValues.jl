@@ -7,6 +7,7 @@ include("coalitions.jl")
 include("samplespaces.jl")
 
 # simple test of logistic and linear regression
+srand(1)
 K = 4
 X = rand(K,100)
 beta = randn(K)
@@ -24,11 +25,33 @@ function raw_exp(f, x, inds, X)
 end
 
 φ,φVar = shapleyvalues(x, f, X) # linear regression
-@test raw_exp(f, x, Int64[1,2,3,4], X) - raw_exp(f, x, Int64[], X) ≈ sum(φ)
+@test raw_exp(f, x, 1:K, X) - raw_exp(f, x, Int64[], X) ≈ sum(φ)
 @test sum(abs(φVar)) < 1e-10
 φ,φVar = shapleyvalues(x, f, X, nsamples=8)
 φ,φVar = shapleyvalues(x, f, sparse(X), nsamples=8)
 
 φ,φVar = shapleyvalues(x, p, X, logit) # logistic regression
-@test logit(raw_exp(p, x, Int64[1,2,3,4], X)) - logit(raw_exp(p, x, Int64[], X)) ≈ sum(φ)
+@test logit(raw_exp(p, x, 1:K, X)) - logit(raw_exp(p, x, Int64[], X)) ≈ sum(φ)
 @test sum(abs(φVar)) < 1e-10
+
+# test with many features
+srand(1)
+K = 400
+X = rand(K,10)
+beta = randn(K)
+f(x) = x'beta
+p(x) = logistic(f(x))
+x = 2*randn(K)
+φ,φVar = shapleyvalues(x, f, X)
+@test raw_exp(f, x, 1:K, X) - raw_exp(f, x, Int64[], X) ≈ sum(φ)
+
+# test with many features
+srand(1)
+K = 400
+X = rand(K,10)
+beta = randn(K)
+f(x) = x'beta
+p(x) = logistic(f(x))
+x = .02*randn(K)
+φ,φVar = shapleyvalues(x, p, X, logit)
+@test logit(raw_exp(p, x, 1:K, X)) - logit(raw_exp(p, x, Int64[], X)) ≈ sum(φ)
