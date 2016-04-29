@@ -26,6 +26,8 @@ end
 φ,φVar = shapleyvalues(x, f, X) # linear regression
 @test raw_exp(f, x, Int64[1,2,3,4], X) - raw_exp(f, x, Int64[], X) ≈ sum(φ)
 @test sum(abs(φVar)) < 1e-10
+φ,φVar = shapleyvalues(x, f, X, nsamples=8)
+φ,φVar = shapleyvalues(x, f, sparse(X), nsamples=8)
 
 φ,φVar = shapleyvalues(x, p, X, logit) # logistic regression
 @test logit(raw_exp(p, x, Int64[1,2,3,4], X)) - logit(raw_exp(p, x, Int64[], X)) ≈ sum(φ)

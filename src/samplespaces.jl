@@ -8,7 +8,7 @@ type DenseSampleSpace{T}
     N::Int64
 end
 function samplespace{T}(X::Array{T,2}, nsamples::Int)
-    DenseSampleSpace(Array(T, size(X)[1], nsamples*size(X)[2]), 0)
+    DenseSampleSpace(Array(T, size(X)[1], 2*nsamples*size(X)[2]), 0)
 end
 addsample!(s::DenseSampleSpace, x) = (s.N += 1; s.data[:,s.N] = x)
 reset!(s::DenseSampleSpace) = (s.N = 0)
@@ -26,9 +26,9 @@ type SparseSampleSpace{Tv,Ti}
 end
 function samplespace{Tv,Ti}(X::SparseMatrixCSC{Tv,Ti}, nsamples::Int, maxDensity=1.0)
     s = SparseSampleSpace(
-        Array(Ti, nsamples*size(X)[2]+1), one(Ti),
-        Array(Ti, ceil(Int, maxDensity*size(X)[1]*nsamples*size(X)[2]+1)), zero(Ti),
-        Array(Tv, ceil(Int, maxDensity*size(X)[1]*nsamples*size(X)[2]+1)), zero(Ti), convert(Ti, size(X)[1])
+        Array(Ti, 2*nsamples*size(X)[2]+1), one(Ti),
+        Array(Ti, ceil(Int, maxDensity*size(X)[1]*2*nsamples*size(X)[2]+1)), zero(Ti),
+        Array(Tv, ceil(Int, maxDensity*size(X)[1]*2*nsamples*size(X)[2]+1)), zero(Ti), convert(Ti, size(X)[1])
     )
     s.colptr[1] = 1
     s
