@@ -79,6 +79,7 @@ end
 function shapleyvalues(x, f::Function, X, g::Function=identity; featureGroups=nothing, synthSampleSpace=nothing,
                        weights=nothing, nsamples=nothing)
     P,N = size(X)
+    @assert length(x) == P "Provided 'x' length must match the data matrix features count ($(length(x)) != $P)!"
 
     # give default values to omitted arguments
     weights != nothing || (weights = ones(N)/N)
