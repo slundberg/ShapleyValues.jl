@@ -82,7 +82,8 @@ function shapleyvalues(x, f::Function, X, g::Function=identity; featureGroups=no
     @assert length(x) == P "Provided 'x' length must match the data matrix features count ($(length(x)) != $P)!"
 
     # give default values to omitted arguments
-    weights != nothing || (weights = ones(N)/N)
+    weights != nothing || (weights = ones(N))
+    weights ./= sum(weights)
     featureGroups != nothing || (featureGroups = Array{Int64,1}[Int64[i] for i in 1:length(x)])
     featureGroups = convert(Array{Array{Int64,1},1}, featureGroups)
     @assert length(weights) == N "Provided 'weights' must match the number of representative data points (size(X)[2])!"
@@ -117,6 +118,7 @@ function shapleyvalues(x, f::Function, X, g::Function=identity; featureGroups=no
             # (N-n)/(N-1) is the finite sample variance correction without weighting
             # so we approximate weighted as (1-sumw)/1 since weights sum to 1 over the whole population
             vs = [(1-a.sumw) * var(a)/length(a) for a in deltas]
+            sum(vs) > 0 || break
             nextSamples = allocate_samples(vs, min(round(Int, nsamples/3), samplesLeft), numSets .- totalSamples)
         else break end
     end
@@ -144,7 +146,7 @@ function shapleyvalues(x, f::Function, X, g::Function=identity; featureGroups=no
     @assert all(β .<= 1) "Rescaling failed! (indicates poor Shapley value estimates)"
 
     # return the Shapley values along with variances of the estimates
-    φ,φVar
+    fnull,φ,φVar
 end
 
 end # module

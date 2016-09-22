@@ -24,13 +24,13 @@ function raw_exp(f, x, inds, X)
     mean(f(Xtmp))
 end
 
-φ,φVar = shapleyvalues(x, f, X) # linear regression
+fnull,φ,φVar = shapleyvalues(x, f, X) # linear regression
 @test raw_exp(f, x, 1:K, X) - raw_exp(f, x, Int64[], X) ≈ sum(φ)
 @test sum(abs(φVar)) < 1e-10
-φ,φVar = shapleyvalues(x, f, X, nsamples=8)
-φ,φVar = shapleyvalues(x, f, sparse(X), nsamples=8)
+fnull,φ,φVar = shapleyvalues(x, f, X, nsamples=8)
+fnull,φ,φVar = shapleyvalues(x, f, sparse(X), nsamples=8)
 
-φ,φVar = shapleyvalues(x, p, X, logit) # logistic regression
+fnull,φ,φVar = shapleyvalues(x, p, X, logit) # logistic regression
 @test logit(raw_exp(p, x, 1:K, X)) - logit(raw_exp(p, x, Int64[], X)) ≈ sum(φ)
 @test sum(abs(φVar)) < 1e-10
 
@@ -42,7 +42,7 @@ beta = randn(K)
 f(x) = x'beta
 p(x) = logistic(f(x))
 x = 2*randn(K)
-φ,φVar = shapleyvalues(x, f, X)
+fnull,φ,φVar = shapleyvalues(x, f, X)
 @test raw_exp(f, x, 1:K, X) - raw_exp(f, x, Int64[], X) ≈ sum(φ)
 
 # test with many features
@@ -53,5 +53,5 @@ beta = randn(K)
 f(x) = x'beta
 p(x) = logistic(f(x))
 x = .02*randn(K)
-φ,φVar = shapleyvalues(x, p, X, logit)
+fnull,φ,φVar = shapleyvalues(x, p, X, logit)
 @test logit(raw_exp(p, x, 1:K, X)) - logit(raw_exp(p, x, Int64[], X)) ≈ sum(φ)
